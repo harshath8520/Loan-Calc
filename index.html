@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Premium debt tracking application for managing credit cards and loans">
+    <title>Debt Tracker - Premium Financial Management</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/toast.css">
+    <!-- Firebase SDK (Compat Version for Global Scope) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <!-- Firebase Initialization -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAxPz6zxHs9Y8WXVAMK_E5WgvdOeb6Ejpk",
+            authDomain: "loan-calc-38fbe.firebaseapp.com",
+            projectId: "loan-calc-38fbe",
+            storageBucket: "loan-calc-38fbe.firebasestorage.app",
+            messagingSenderId: "696875167383",
+            appId: "1:696875167383:web:96fa66a6a62b16d4b5c3d2"
+        };
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="nav-container">
+            <h1 class="nav-title" role="heading" aria-level="1">Debt Tracker</h1>
+            <button class="nav-menu-btn" id="navMenuBtn" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="navMenu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <div class="nav-menu" id="navMenu" role="navigation" aria-label="Main navigation">
+            <a href="#" class="nav-link active" data-page="dashboard" aria-current="page" role="menuitem">Dashboard</a>
+            <a href="#" class="nav-link" data-page="loans" role="menuitem">Loans</a>
+            <a href="#" class="nav-link" data-page="payments" role="menuitem">Payments</a>
+            <a href="#" class="nav-link" data-page="analytics" role="menuitem">Analytics</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Dashboard Page -->
+        <div class="page active" id="page-dashboard">
+            <div class="page-header">
+                <h2>Dashboard</h2>
+                <div class="quick-actions">
+                    <button class="btn btn-primary" id="btnAddIncome">Add Income</button>
+                    <button class="btn btn-destructive" id="btnAddExpense">Add Expense</button>
+                    <button class="btn btn-primary" id="btnAddLoan">Add Loan</button>
+                    <button class="btn btn-secondary" id="btnMakePayment">Make Payment</button>
+                </div>
+            </div>
+
+            <!-- Money Magnet Summary -->
+            <div class="summary-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="summary-card income">
+                    <div class="summary-label">Monthly Income</div>
+                    <div class="summary-value" id="dashTotalIncome">₹0.00</div>
+                </div>
+                <div class="summary-card expense">
+                    <div class="summary-label">Monthly Expenses</div>
+                    <div class="summary-value" id="dashTotalExpenses">₹0.00</div>
+                </div>
+                <div class="summary-card debt">
+                    <div class="summary-label">Total Debt</div>
+                    <div class="summary-value" id="dashTotalDebt">₹0.00</div>
+                </div>
+                <div class="summary-card net">
+                    <div class="summary-label">Net Balance</div>
+                    <div class="summary-value" id="dashNetBalance">₹0.00</div>
+                </div>
+            </div>
+
+            <div class="analytics-grid" style="margin-bottom: 2rem;">
+                <div class="chart-card">
+                    <h3>Spending by Category</h3>
+                    <canvas id="expenseCategoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Monthly Payments Overview -->
+            <div class="activity-row" style="margin-bottom: 2rem;">
+                <div class="activity-card" style="grid-column: span 2;">
+                    <h3>Upcoming Monthly Payments</h3>
+                    <div class="activity-list" id="monthlyPaymentsList">
+                        <div class="empty-state">No active items found</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="activity-row">
+                <div class="activity-card" style="grid-column: span 2;">
+                    <h3>Recent Payments</h3>
+                    <div class="activity-list" id="recentPayments">
+                        <div class="empty-state">No payments yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loans Page -->
+        <div class="page" id="page-loans">
+            <div class="page-header">
+                <h2>Loans</h2>
+                <button class="btn btn-primary" id="btnAddLoanPage">Add New Loan</button>
+            </div>
+
+            <div class="filters-bar">
+                <select class="input" id="filterCategory">
+                    <option value="">All Categories</option>
+                </select>
+                <select class="input" id="sortBy">
+                    <option value="name">Sort by Name</option>
+                    <option value="balance">Sort by Balance</option>
+                </select>
+            </div>
+
+            <div class="items-list" id="itemsList">
+                <div class="empty-state">No loans found. Add your first loan!</div>
+            </div>
+        </div>
+
+        <!-- Payments Page -->
+        <div class="page" id="page-payments">
+            <div class="page-header">
+                <h2>Payments</h2>
+                <button class="btn btn-primary" id="btnAddPayment">Add Payment</button>
+            </div>
+
+            <div class="chart-card">
+                <h3>Payment Distribution</h3>
+                <canvas id="paymentsChart"></canvas>
+            </div>
+
+            <div class="payments-table-container">
+                <table class="payments-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Card/Loan</th>
+                            <th>Amount</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentsTableBody">
+                        <tr>
+                            <td colspan="5" class="empty-state">No payments recorded</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+
+
+        <!-- Analytics Page -->
+        <div class="page" id="page-analytics">
+            <div class="page-header">
+                <h2>Analytics</h2>
+                <div class="analytics-actions">
+                    <button class="btn btn-secondary" id="btnDownloadPDF">Download PDF Report</button>
+                    <div class="filters-bar">
+                        <select class="input" id="analyticsCategoryFilter">
+                            <option value="">All Categories</option>
+                        </select>
+                        <select class="input" id="analyticsTimeFilter">
+                            <option value="all">All Time</option>
+                            <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                        </select>
+                        <select class="input" id="analyticsSortOrder">
+                            <option value="high-low">Amount: High to Low</option>
+                            <option value="low-high">Amount: Low to High</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analytics-grid">
+                <div class="chart-card">
+                    <h3>Analytics Category Distribution</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Payment Breakdown by Item</h3>
+                    <canvas id="paymentsBreakdownChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <!-- Income Modal -->
+    <div class="modal" id="modalIncome">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalIncomeTitle">Add Income</h3>
+                <button class="modal-close" id="modalIncomeClose">&times;</button>
+            </div>
+            <form id="formIncome" class="modal-body">
+                <input type="hidden" id="incomeId">
+                <div class="form-group">
+                    <label class="label">Source Name</label>
+                    <input type="text" class="input" id="incomeSource" placeholder="e.g., Salary, Freelance" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Amount</label>
+                    <input type="number" class="input" id="incomeAmount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Date</label>
+                    <input type="date" class="input" id="incomeDate" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="incomeCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Income</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Expense Modal -->
+    <div class="modal" id="modalExpense">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalExpenseTitle">Add Expense</h3>
+                <button class="modal-close" id="modalExpenseClose">&times;</button>
+            </div>
+            <form id="formExpense" class="modal-body">
+                <input type="hidden" id="expenseId">
+                <div class="form-group">
+                    <label class="label">Expense Name</label>
+                    <input type="text" class="input" id="expenseName" placeholder="e.g., Groceries, Rent" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Amount</label>
+                    <input type="number" class="input" id="expenseAmount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Category</label>
+                    <select class="input" id="expenseCategory" required>
+                        <option value="Food">Food & Dining</option>
+                        <option value="Transportation">Transportation</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Health">Health</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="label">Date</label>
+                    <input type="date" class="input" id="expenseDate" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="expenseCancel">Cancel</button>
+                    <button type="submit" class="btn btn-destructive">Save Expense</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="modalLoan">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalLoanTitle">Add Loan</h3>
+                <button class="modal-close" id="modalLoanClose">&times;</button>
+            </div>
+            <form id="formLoan" class="modal-body">
+                <input type="hidden" id="loanId">
+                <div class="form-group">
+                    <label class="label">Loan Name</label>
+                    <input type="text" class="input" id="loanName" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Principal</label>
+                    <input type="number" class="input" id="loanPrincipal" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Remaining Balance</label>
+                    <input type="number" class="input" id="loanBalance" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Monthly Payment</label>
+                    <input type="number" class="input" id="loanMonthlyPayment" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Start Date</label>
+                    <input type="date" class="input" id="loanStartDate" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Category</label>
+                    <input type="text" class="input" id="loanCategory" placeholder="e.g., Auto, Mortgage, Personal">
+                </div>
+                <div class="form-group">
+                    <label class="label">Tags (comma separated)</label>
+                    <input type="text" class="input" id="loanTags" placeholder="e.g., high-priority, refinance">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="loanCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="modalPayment">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalPaymentTitle">Add Payment</h3>
+                <button class="modal-close" id="modalPaymentClose">&times;</button>
+            </div>
+            <form id="formPayment" class="modal-body">
+                <input type="hidden" id="paymentId">
+                <div class="form-group">
+                    <label class="label">Card/Loan</label>
+                    <select class="input" id="paymentItem" required>
+                        <option value="">Select a card or loan</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="label">Amount</label>
+                    <input type="number" class="input" id="paymentAmount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Date</label>
+                    <input type="date" class="input" id="paymentDate" required>
+                </div>
+                <div class="form-group">
+                    <label class="label">Notes</label>
+                    <textarea class="input" id="paymentNotes" rows="3"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="paymentCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="js/storage.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
+
+

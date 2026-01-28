@@ -323,12 +323,15 @@ const App = {
             container.innerHTML = filtered.map(item => Components.createItemCard(item, 'loan')).join('');
         }
 
-        // Update Filtered Total
+        // Update Filtered Totals
         const totalAmount = filtered.reduce((sum, item) => sum + parseFloat(item.balance || 0), 0);
+        const totalMonthly = filtered.reduce((sum, item) => sum + parseFloat(item.monthlyPayment || 0), 0);
+
         const totalDisplay = document.getElementById('loansTotalAmount');
-        if (totalDisplay) {
-            totalDisplay.textContent = Components.formatCurrency(totalAmount);
-        }
+        const totalMonthlyDisplay = document.getElementById('loansTotalMonthlyAmount');
+
+        if (totalDisplay) totalDisplay.textContent = Components.formatCurrency(totalAmount);
+        if (totalMonthlyDisplay) totalMonthlyDisplay.textContent = Components.formatCurrency(totalMonthly);
     },
 
     // Income

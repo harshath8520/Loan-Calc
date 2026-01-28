@@ -154,9 +154,15 @@
                 <div class="empty-state">No loans found. Add your first loan!</div>
             </div>
 
-            <div class="item-footer" id="loansTotalBar" style="margin-top: 2rem; padding: 1.5rem; background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center; font-size: 1.25rem; font-weight: 700; box-shadow: var(--shadow-lg);">
-                <span>Total Balance (Filtered):</span>
-                <span id="loansTotalAmount" style="color: var(--clr-primary);">₹0</span>
+            <div class="item-footer" id="loansTotalBar" style="margin-top: 2rem; padding: 1.5rem; background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 0.5rem; box-shadow: var(--shadow-lg);">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.1rem; color: rgba(255,255,255,0.7);">
+                    <span>Monthly Payments (Filtered):</span>
+                    <span id="loansTotalMonthlyAmount" style="color: var(--clr-accent);">₹0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.25rem; font-weight: 700; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.5rem; margin-top: 0.25rem;">
+                    <span>Total Balance (Filtered):</span>
+                    <span id="loansTotalAmount" style="color: var(--clr-primary);">₹0</span>
+                </div>
             </div>
         </div>
 

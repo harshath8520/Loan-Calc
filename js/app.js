@@ -322,6 +322,13 @@ const App = {
         } else {
             container.innerHTML = filtered.map(item => Components.createItemCard(item, 'loan')).join('');
         }
+
+        // Update Filtered Total
+        const totalAmount = filtered.reduce((sum, item) => sum + parseFloat(item.balance || 0), 0);
+        const totalDisplay = document.getElementById('loansTotalAmount');
+        if (totalDisplay) {
+            totalDisplay.textContent = Components.formatCurrency(totalAmount);
+        }
     },
 
     // Income

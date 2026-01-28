@@ -45,7 +45,9 @@
             <a href="#" class="nav-link active" data-page="dashboard" aria-current="page" role="menuitem">Dashboard</a>
             <a href="#" class="nav-link" data-page="loans" role="menuitem">Loans</a>
             <a href="#" class="nav-link" data-page="payments" role="menuitem">Payments</a>
+            <a href="#" class="nav-link" data-page="spending" role="menuitem">Spending Analysis</a>
             <a href="#" class="nav-link" data-page="analytics" role="menuitem">Analytics</a>
+            <a href="#" class="nav-link" data-page="advisor" role="menuitem">Advisor</a>
         </div>
     </nav>
 
@@ -56,10 +58,11 @@
             <div class="page-header">
                 <h2>Dashboard</h2>
                 <div class="quick-actions">
+                    <button class="btn btn-secondary" onclick="App.downloadPDF('page-dashboard')">Export PDF</button>
+                    <button class="btn btn-destructive" onclick="window.resetAppDatabase()" style="background: rgba(255, 0, 0, 0.2); border: 1px solid rgba(255, 0, 0, 0.3);">Master Reset (Clear All Data)</button>
                     <button class="btn btn-primary" id="btnAddIncome">Add Income</button>
                     <button class="btn btn-destructive" id="btnAddExpense">Add Expense</button>
                     <button class="btn btn-primary" id="btnAddLoan">Add Loan</button>
-                    <button class="btn btn-secondary" id="btnMakePayment">Make Payment</button>
                 </div>
             </div>
 
@@ -92,10 +95,18 @@
 
             <!-- Monthly Payments Overview -->
             <div class="activity-row" style="margin-bottom: 2rem;">
-                <div class="activity-card" style="grid-column: span 2;">
-                    <h3>Upcoming Monthly Payments</h3>
+                <div class="activity-card" style="grid-column: span 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3>Upcoming Monthly Payments</h3>
+                    </div>
                     <div class="activity-list" id="monthlyPaymentsList">
                         <div class="empty-state">No active items found</div>
+                    </div>
+                </div>
+                <div class="activity-card" style="grid-column: span 1;">
+                    <h3>Paid This Month (Sent to Lenders)</h3>
+                    <div class="activity-list" id="paidPaymentsList">
+                        <div class="empty-state">No payments sent yet</div>
                     </div>
                 </div>
             </div>
@@ -115,7 +126,10 @@
         <div class="page" id="page-loans">
             <div class="page-header">
                 <h2>Loans</h2>
-                <button class="btn btn-primary" id="btnAddLoanPage">Add New Loan</button>
+                <div class="quick-actions">
+                    <button class="btn btn-secondary" onclick="App.downloadPDF('page-loans')">Export PDF</button>
+                    <button class="btn btn-primary" id="btnAddLoanPage">Add New Loan</button>
+                </div>
             </div>
 
             <div class="filters-bar">
@@ -137,12 +151,17 @@
         <div class="page" id="page-payments">
             <div class="page-header">
                 <h2>Payments</h2>
-                <button class="btn btn-primary" id="btnAddPayment">Add Payment</button>
+                <div class="quick-actions">
+                    <button class="btn btn-secondary" onclick="App.downloadPDF('page-payments')">Export PDF</button>
+                    <button class="btn btn-primary" id="btnAddPayment">Add Payment</button>
+                </div>
             </div>
 
-            <div class="chart-card">
-                <h3>Payment Distribution</h3>
-                <canvas id="paymentsChart"></canvas>
+            <div class="charts-row">
+                <div class="chart-card">
+                    <h3>Payment Distribution</h3>
+                    <canvas id="paymentDistributionChart"></canvas>
+                </div>
             </div>
 
             <div class="payments-table-container">
@@ -165,14 +184,37 @@
             </div>
         </div>
 
+        <!-- Spending Analysis Page -->
+        <div class="page" id="page-spending">
+            <div class="page-header">
+                <h2>Spending Analysis</h2>
+                <div class="quick-actions">
+                    <button class="btn btn-secondary" onclick="App.downloadPDF('page-spending')">Export PDF</button>
+                    <button class="btn btn-primary" onclick="App.openCategoryModal()">Manage Categories</button>
+                    <button class="btn btn-primary" onclick="App.openBudgetModal()">Manage Budgets</button>
+                </div>
+            </div>
 
+            <div class="summary-grid" id="budgetSummaryGrid">
+                <!-- Budget overview cards will be here -->
+            </div>
+
+            <div class="activity-row">
+                <div class="activity-card" style="grid-column: span 2;">
+                    <h3>Spending vs Budget by Category</h3>
+                    <div class="activity-list" id="budgetAnalysisList">
+                        <!-- Category budget bars will be here -->
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Analytics Page -->
         <div class="page" id="page-analytics">
             <div class="page-header">
                 <h2>Analytics</h2>
                 <div class="analytics-actions">
-                    <button class="btn btn-secondary" id="btnDownloadPDF">Download PDF Report</button>
+                    <button class="btn btn-secondary" onclick="App.downloadPDF('page-analytics')">Export PDF</button>
                     <div class="filters-bar">
                         <select class="input" id="analyticsCategoryFilter">
                             <option value="">All Categories</option>
@@ -198,6 +240,29 @@
                 <div class="chart-card">
                     <h3>Payment Breakdown by Item</h3>
                     <canvas id="paymentsBreakdownChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advisor Page -->
+        <div class="page" id="page-advisor">
+            <div class="page-header">
+                <h2>Financial Advisor</h2>
+                <button class="btn btn-secondary" onclick="App.downloadPDF('page-advisor')">Export PDF</button>
+            </div>
+
+            <div class="activity-row">
+                <div class="activity-card" style="grid-column: span 1;">
+                    <h3>Loan Closure Strategy</h3>
+                    <div id="advisorLoanStrategy" class="activity-list">
+                        <!-- Strategy content -->
+                    </div>
+                </div>
+                <div class="activity-card" style="grid-column: span 1;">
+                    <h3>Spending Insights</h3>
+                    <div id="advisorSpendingInsights" class="activity-list">
+                        <!-- Insights content -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -299,8 +364,8 @@
                     <input type="number" class="input" id="loanMonthlyPayment" step="0.01" required>
                 </div>
                 <div class="form-group">
-                    <label class="label">Start Date</label>
-                    <input type="date" class="input" id="loanStartDate" required>
+                    <label class="label">Monthly Payment Date (Day 1-31)</label>
+                    <input type="number" class="input" id="loanPaymentDay" min="1" max="31" required>
                 </div>
                 <div class="form-group">
                     <label class="label">Category</label>
@@ -349,6 +414,50 @@
                     <button type="submit" class="btn btn-primary">Save</button>
                 </div>
             </form>
+        </div>
+    </div>
+    <!-- Budget Modal -->
+    <div class="modal" id="modalBudget">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Manage Category Budgets</h3>
+                <button class="modal-close" id="modalBudgetClose">&times;</button>
+            </div>
+            <form id="formBudget" class="modal-body">
+                <div id="budgetInputsContainer" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- Dynamic budget inputs for each category -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="budgetCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Budgets</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Category Modal -->
+    <div class="modal" id="modalCategory">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Manage Categories</h3>
+                <button class="modal-close" id="modalCategoryClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="label">New Category Name</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" class="input" id="newCategoryName" placeholder="e.g., Home Decor">
+                        <button class="btn btn-primary" id="btnAddCategoryRow">Add</button>
+                    </div>
+                </div>
+                <hr style="margin: 1.5rem 0; opacity: 0.1;">
+                <div id="categoryListContainer" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <!-- List of categories with delete buttons -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="categoryClose">Close</button>
+                </div>
+            </div>
         </div>
     </div>
 

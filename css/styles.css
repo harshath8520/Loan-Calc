@@ -498,6 +498,33 @@ body {
     gap: var(--spacing-lg);
 }
 
+.progress-bar {
+    width: 100%;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 8px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--gradient-primary);
+    transition: width 0.5s ease;
+}
+
+.progress-fill.positive {
+    background: hsl(var(--success));
+}
+
+.progress-fill.warning {
+    background: hsl(var(--warning));
+}
+
+.progress-fill.negative {
+    background: hsl(var(--destructive));
+}
+
 .activity-card {
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
@@ -652,4 +679,115 @@ body {
     .chart-card canvas {
         max-height: 400px;
     }
+}
+
+/* PDF Export Enhancements - Matching Website Design Exactly */
+body.is-exporting-pdf {
+    background: #090820 !important;
+    overflow: visible !important;
+    height: auto !important;
+}
+
+body.is-exporting-pdf .page {
+    background: radial-gradient(circle at 20% 20%, #1e1345 0%, #090820 100%) !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    padding: 60px !important;
+    display: block !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+body.is-exporting-pdf .nav,
+body.is-exporting-pdf .quick-actions,
+body.is-exporting-pdf .item-actions,
+body.is-exporting-pdf .filters-bar,
+body.is-exporting-pdf .table-actions,
+body.is-exporting-pdf .toast-container,
+body.is-exporting-pdf .modal,
+body.is-exporting-pdf .btn,
+body.is-exporting-pdf .analytics-actions {
+    display: none !important;
+}
+
+body.is-exporting-pdf .page-header {
+    margin-bottom: 40px !important;
+    border-bottom: 3px solid #7030EF !important;
+    padding-bottom: 25px !important;
+}
+
+body.is-exporting-pdf h2 {
+    font-size: 2.5rem !important;
+    color: #ffffff !important;
+}
+
+body.is-exporting-pdf .item-card,
+body.is-exporting-pdf .summary-card,
+body.is-exporting-pdf .chart-card,
+body.is-exporting-pdf .activity-card {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    margin-bottom: 25px !important;
+    border-radius: 20px !important;
+    padding: 30px !important;
+    color: #ffffff !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+}
+
+body.is-exporting-pdf .summary-value {
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    background: none !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+
+body.is-exporting-pdf .badge {
+    background: rgba(112, 48, 239, 0.3) !important;
+    color: white !important;
+    border: 1px solid rgba(112, 48, 239, 0.5) !important;
+    padding: 6px 12px !important;
+}
+
+body.is-exporting-pdf .summary-grid,
+body.is-exporting-pdf .analytics-grid,
+body.is-exporting-pdf .activity-row {
+    display: grid !important;
+    gap: 25px !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+}
+
+body.is-exporting-pdf .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+body.is-exporting-pdf .payments-table-container {
+    overflow: visible !important;
+    height: auto !important;
+}
+
+body.is-exporting-pdf .progress-bar {
+    background: rgba(255, 255, 255, 0.1) !important;
+    height: 12px !important;
+    border-radius: 6px !important;
+}
+
+body.is-exporting-pdf .progress-fill {
+    background: linear-gradient(90deg, #7030EF, #DB1FFF) !important;
+    box-shadow: 0 0 15px rgba(112, 48, 239, 0.5) !important;
+}
+
+body.is-exporting-pdf * {
+    transition: none !important;
+    animation: none !important;
 }

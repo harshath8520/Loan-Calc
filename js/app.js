@@ -12,6 +12,7 @@ const App = {
 
         // Initialize storage with a data update callback
         Storage.init(() => {
+            this.updateAllCategorySelects();
             this.refreshAllUI();
         });
     },
@@ -21,7 +22,9 @@ const App = {
         this.updateDashboard();
         this.renderItemsList();
         this.renderPayments();
+        this.updateSpendingAnalysis();
         this.updateAnalytics();
+        this.updateAdvisor();
         Charts.updateAll();
     },
 
@@ -43,15 +46,19 @@ const App = {
                 Components.showPage(`page-${page}`);
                 document.getElementById('navMenu')?.classList.remove('active');
 
-                // Page-specific updates if needed (redundant now but safe)
+                // Page-specific updates if needed
                 if (page === 'dashboard') {
                     this.updateDashboard();
                 } else if (page === 'loans') {
                     this.renderItemsList();
                 } else if (page === 'payments') {
                     this.renderPayments();
+                } else if (page === 'spending') {
+                    this.updateSpendingAnalysis();
                 } else if (page === 'analytics') {
                     this.updateAnalytics();
+                } else if (page === 'advisor') {
+                    this.updateAdvisor();
                 }
             });
         });
@@ -103,6 +110,21 @@ const App = {
 
         // PDF Report
         document.getElementById('btnDownloadPDF')?.addEventListener('click', () => this.downloadPDF());
+
+        // Budget management
+        document.getElementById('btnManageBudgets')?.addEventListener('click', () => this.openBudgetModal());
+        document.getElementById('modalBudgetClose')?.addEventListener('click', () => Components.hideModal('modalBudget'));
+        document.getElementById('budgetCancel')?.addEventListener('click', () => Components.hideModal('modalBudget'));
+        document.getElementById('formBudget')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.saveBudgets();
+        });
+
+        // Category management
+        document.getElementById('btnManageCategories')?.addEventListener('click', () => this.openCategoryModal());
+        document.getElementById('modalCategoryClose')?.addEventListener('click', () => Components.hideModal('modalCategory'));
+        document.getElementById('categoryClose')?.addEventListener('click', () => Components.hideModal('modalCategory'));
+        document.getElementById('btnAddCategoryRow')?.addEventListener('click', () => this.addCategory());
 
         // Reset Data (Master Reset)
         window.resetAppDatabase = async () => {
@@ -173,14 +195,60 @@ const App = {
 
         // Update Upcoming Payments
         const monthlyPaymentsList = document.getElementById('monthlyPaymentsList');
+        const paidPaymentsList = document.getElementById('paidPaymentsList');
+
         if (monthlyPaymentsList) {
             const activeLoans = loans.filter(l => l.balance > 0);
-            if (activeLoans.length === 0) {
-                monthlyPaymentsList.innerHTML = '<div class="empty-state">No active loans found</div>';
+
+            // Get payments for this month
+            const thisMonthPayments = payments.filter(p => {
+                const d = new Date(p.date);
+                return d.getMonth() === currentMonth && d.getFullYear() === currentYear && p.itemType === 'loan';
+            });
+
+            // Map which loans are already paid this month
+            const paidLoanIds = new Set(thisMonthPayments.map(p => p.itemId));
+
+            const upcomingLoans = activeLoans.filter(l => !paidLoanIds.has(l.id))
+                .sort((a, b) => (parseInt(a.monthlyPaymentDay) || 0) - (parseInt(b.monthlyPaymentDay) || 0));
+
+            const paidLoansThisMonth = activeLoans.filter(l => paidLoanIds.has(l.id));
+
+            if (upcomingLoans.length === 0) {
+                monthlyPaymentsList.innerHTML = '<div class="empty-state">No upcoming payments this month</div>';
             } else {
-                monthlyPaymentsList.innerHTML = activeLoans.map(loan =>
-                    Components.createActivityItem(loan.name, loan.monthlyPayment, new Date().toISOString(), 'payment')
-                ).join('');
+                monthlyPaymentsList.innerHTML = upcomingLoans.map(loan => {
+                    const day = loan.monthlyPaymentDay || '??';
+                    const dueDate = new Date(currentYear, currentMonth, parseInt(day));
+                    return `
+                        <div class="activity-item">
+                            <div class="activity-item-info">
+                                <div class="activity-item-name">${loan.name} (Day ${day})</div>
+                                <div class="activity-item-date">Due: ${Components.formatDate(dueDate.toISOString())}</div>
+                            </div>
+                            <div class="activity-item-amount negative">-${Components.formatCurrency(loan.monthlyPayment)}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            if (paidPaymentsList) {
+                if (paidLoansThisMonth.length === 0) {
+                    paidPaymentsList.innerHTML = '<div class="empty-state">No payments sent yet</div>';
+                } else {
+                    paidPaymentsList.innerHTML = paidLoansThisMonth.map(loan => {
+                        const payment = thisMonthPayments.find(p => p.itemId === loan.id);
+                        return `
+                            <div class="activity-item">
+                                <div class="activity-item-info">
+                                    <div class="activity-item-name">${loan.name}</div>
+                                    <div class="activity-item-date">Paid: ${Components.formatDate(payment.date)}</div>
+                                </div>
+                                <div class="activity-item-amount positive">${Components.formatCurrency(payment.amount)}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
             }
         }
 
@@ -219,7 +287,7 @@ const App = {
 
         filtered.sort((a, b) => {
             if (sortBy === 'name') return a.name.localeCompare(b.name);
-            if (sortBy === 'balance') return parseFloat(b.balance) - parseFloat(a.balance);
+            if (sortBy === 'balance') return parseFloat(a.balance) - parseFloat(b.balance); // Changed to Low to High for easy closing
             return 0;
         });
 
@@ -297,7 +365,7 @@ const App = {
                 document.getElementById('loanPrincipal').value = loan.principal;
                 document.getElementById('loanBalance').value = loan.balance;
                 document.getElementById('loanMonthlyPayment').value = loan.monthlyPayment;
-                document.getElementById('loanStartDate').value = loan.startDate;
+                document.getElementById('loanPaymentDay').value = loan.monthlyPaymentDay || '';
                 document.getElementById('loanCategory').value = loan.category || '';
                 document.getElementById('loanTags').value = loan.tags || '';
             }
@@ -312,7 +380,7 @@ const App = {
             principal: parseFloat(document.getElementById('loanPrincipal').value),
             balance: parseFloat(document.getElementById('loanBalance').value),
             monthlyPayment: parseFloat(document.getElementById('loanMonthlyPayment').value),
-            startDate: document.getElementById('loanStartDate').value,
+            monthlyPaymentDay: document.getElementById('loanPaymentDay').value,
             category: document.getElementById('loanCategory').value.trim(),
             tags: document.getElementById('loanTags').value.trim()
         };
@@ -425,20 +493,322 @@ const App = {
         Charts.updatePaymentsBreakdownChart();
     },
 
-    downloadPDF() {
-        const element = document.getElementById('page-analytics');
-        const opt = {
-            margin: 10,
-            filename: `Financial_Report_${new Date().toISOString().split('T')[0]}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, backgroundColor: '#090820' },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-        };
-        Components.showToast('Generating report...', 'info', 'Wait');
-        html2pdf().from(element).set(opt).save().then(() => {
+    async downloadPDF(elementId = 'page-analytics') {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+
+        // Add class for export styling
+        document.body.classList.add('is-exporting-pdf');
+
+        // Brief delay to ensure styles and layouts are fully settled
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        try {
+            // Using a slightly different approach to capture the full scrolling content
+            const opt = {
+                margin: [0, 0],
+                filename: `${elementId.replace('page-', '')}_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 1.0 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#090820',
+                    logging: false,
+                    letterRendering: true,
+                    windowWidth: 1600,
+                    height: element.scrollHeight, // Force capture of full height
+                    scrollY: -window.scrollY // Offset any existing scroll
+                },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true }
+            };
+
+            await html2pdf().from(element).set(opt).save();
             Components.showToast('Report downloaded', 'success', 'Done');
+        } catch (error) {
+            console.error('PDF Export Error:', error);
+            Components.showToast('Error generating PDF', 'error', 'Error');
+        } finally {
+            document.body.classList.remove('is-exporting-pdf');
+        }
+    },
+
+    // Spending Analysis
+    updateSpendingAnalysis() {
+        const expenses = Storage.getExpenses();
+        const budgets = Storage.getBudgets();
+        const categories = Storage.getCategories();
+
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        const monthlyExpenses = expenses.filter(e => {
+            const d = new Date(e.date);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
         });
+
+        const analysisList = document.getElementById('budgetAnalysisList');
+        const summaryGrid = document.getElementById('budgetSummaryGrid');
+
+        let totalBudget = 0;
+        let totalSpent = 0;
+
+        const categorySummary = categories.map(cat => {
+            const budget = parseFloat(budgets[cat] || 0);
+            const spent = monthlyExpenses
+                .filter(e => e.category === cat)
+                .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+
+            totalBudget += budget;
+            totalSpent += spent;
+
+            return { cat, budget, spent };
+        }).filter(item => item.budget > 0 || item.spent > 0);
+
+        if (summaryGrid) {
+            summaryGrid.innerHTML = `
+                <div class="summary-card">
+                    <div class="summary-label">Total Monthly Budget</div>
+                    <div class="summary-value">${Components.formatCurrency(totalBudget)}</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Total Spent</div>
+                    <div class="summary-value ${totalSpent > totalBudget ? 'negative' : ''}">${Components.formatCurrency(totalSpent)}</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Remaining Budget</div>
+                    <div class="summary-value ${totalBudget - totalSpent < 0 ? 'negative' : 'positive'}">
+                        ${Components.formatCurrency(Math.max(0, totalBudget - totalSpent))}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (analysisList) {
+            if (categorySummary.length === 0) {
+                analysisList.innerHTML = '<div class="empty-state">No budgets or expenses found for this month</div>';
+            } else {
+                analysisList.innerHTML = categorySummary.map(item => {
+                    const percent = item.budget > 0 ? Math.min(100, (item.spent / item.budget) * 100) : (item.spent > 0 ? 100 : 0);
+                    const remaining = item.budget - item.spent;
+                    const statusClass = percent >= 90 ? 'negative' : (percent >= 75 ? 'warning' : 'positive');
+
+                    return `
+                        <div class="activity-item" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <div class="activity-item-name">${item.cat}</div>
+                                <div class="activity-item-amount ${statusClass}">
+                                    ${Components.formatCurrency(item.spent)} / ${Components.formatCurrency(item.budget)}
+                                </div>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${percent}%; background: ${percent > 100 ? 'hsl(var(--destructive))' : ''}"></div>
+                            </div>
+                            <div style="font-size: 0.75rem; color: hsl(var(--muted-foreground)); display: flex; justify-content: space-between;">
+                                <span>${percent.toFixed(1)}% used</span>
+                                <span>${remaining >= 0 ? 'Remaining: ' + Components.formatCurrency(remaining) : 'Over budget: ' + Components.formatCurrency(Math.abs(remaining))}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+    },
+
+    openBudgetModal() {
+        const budgets = Storage.getBudgets();
+        const categories = Storage.getCategories();
+        const container = document.getElementById('budgetInputsContainer');
+
+        container.innerHTML = categories.map(cat => `
+            <div class="form-group">
+                <label class="label">${cat} Budget</label>
+                <input type="number" class="input budget-input" data-category="${cat}" value="${budgets[cat] || 0}" step="0.01">
+            </div>
+        `).join('');
+
+        Components.showModal('modalBudget');
+    },
+
+    async saveBudgets() {
+        const budgets = {};
+        document.querySelectorAll('.budget-input').forEach(input => {
+            budgets[input.dataset.category] = parseFloat(input.value) || 0;
+        });
+        await Storage.saveBudgets(budgets);
+        Components.hideModal('modalBudget');
+        Components.showToast('Budgets updated successfully', 'success', 'Success');
+    },
+
+    // Category CRUD
+    openCategoryModal() {
+        this.renderCategoryList();
+        Components.showModal('modalCategory');
+    },
+
+    renderCategoryList() {
+        const categories = Storage.getCategories();
+        const container = document.getElementById('categoryListContainer');
+        if (!container) return;
+
+        container.innerHTML = categories.map(cat => `
+            <div class="activity-item">
+                <div class="activity-item-info">
+                    <div class="activity-item-name">${cat}</div>
+                </div>
+                <button class="btn btn-destructive btn-sm" onclick="App.deleteCategory('${cat}')">Delete</button>
+            </div>
+        `).join('');
+    },
+
+    async addCategory() {
+        const input = document.getElementById('newCategoryName');
+        const name = input.value.trim();
+        if (!name) return;
+
+        const categories = Storage.getCategories();
+        if (categories.includes(name)) {
+            Components.showToast('Category already exists', 'warning', 'Duplicate');
+            return;
+        }
+
+        const currentCategories = Storage.data.categories || [];
+        currentCategories.push(name);
+        await Storage.saveCategories(currentCategories);
+        input.value = '';
+        this.renderCategoryList();
+        this.updateAllCategorySelects();
+        Components.showToast('Category added', 'success', 'Success');
+    },
+
+    async deleteCategory(name) {
+        if (!confirm(`Are you sure you want to delete "${name}"? This will not delete existing items but will remove the category from selection.`)) return;
+
+        const currentCategories = Storage.data.categories || [];
+        const index = currentCategories.indexOf(name);
+        if (index > -1) {
+            currentCategories.splice(index, 1);
+            await Storage.saveCategories(currentCategories);
+
+            // Also cleanup budget if exists
+            const budgets = Storage.getBudgets();
+            if (budgets[name]) {
+                delete budgets[name];
+                await Storage.saveBudgets(budgets);
+            }
+
+            this.renderCategoryList();
+            this.updateAllCategorySelects();
+            Components.showToast('Category removed', 'success', 'Deleted');
+        }
+    },
+
+    updateAllCategorySelects() {
+        const categories = Storage.getCategories();
+        const selects = ['expenseCategory', 'filterCategory', 'analyticsCategoryFilter'];
+
+        selects.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const currentVal = el.value;
+
+            // Keep "All Categories" for filters
+            const hasAllOption = el.querySelector('option[value=""]');
+            el.innerHTML = hasAllOption ? '<option value="">All Categories</option>' : '';
+
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = opt.textContent = cat;
+                el.appendChild(opt);
+            });
+
+            el.value = currentVal;
+        });
+    },
+
+    updateAdvisor() {
+        const loans = Storage.getLoans().filter(l => l.balance > 0);
+        const budgets = Storage.getBudgets();
+        const expenses = Storage.getExpenses();
+
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        const monthlyExpenses = expenses.filter(e => {
+            const d = new Date(e.date);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        });
+
+        // 1. Loan Closure Strategy (Snowball - lowest balance first as requested)
+        const strategyList = document.getElementById('advisorLoanStrategy');
+        if (strategyList) {
+            if (loans.length === 0) {
+                strategyList.innerHTML = '<div class="empty-state">No active loans to strategize</div>';
+            } else {
+                const sortedLoans = [...loans].sort((a, b) => parseFloat(a.balance) - parseFloat(b.balance));
+                const topTarget = sortedLoans[0];
+
+                strategyList.innerHTML = `
+                    <div class="activity-item" style="border: 1px solid var(--clr-primary); border-radius: 8px; margin-bottom: 12px; background: rgba(112,48,239,0.1);">
+                        <div class="activity-item-info">
+                            <div class="activity-item-name">Primary Target: ${topTarget.name}</div>
+                            <div class="activity-item-date">Strategy: Debt Snowball (Lowest Balance First)</div>
+                        </div>
+                        <div class="activity-item-amount positive">Focus Here</div>
+                    </div>
+                    <p style="font-size: 0.875rem; color: hsl(var(--muted-foreground)); margin: 12px 0;">
+                        By closing <strong>${topTarget.name}</strong> first, you'll eliminate one monthly payment quickly, giving you more cash flow to tackle other debts.
+                    </p>
+                    <div style="font-size: 0.875rem;">
+                        <strong>Next in line:</strong>
+                        <ul style="margin-top: 8px; padding-left: 20px;">
+                            ${sortedLoans.slice(1, 4).map(l => `<li>${l.name} (${Components.formatCurrency(l.balance)})</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+
+        // 2. Spending Insights
+        const insightList = document.getElementById('advisorSpendingInsights');
+        if (insightList) {
+            const overBudgetCats = [];
+            for (const cat in budgets) {
+                const limit = budgets[cat];
+                const spent = monthlyExpenses.filter(e => e.category === cat).reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                if (limit > 0 && spent > limit) {
+                    overBudgetCats.push({ cat, over: spent - limit });
+                }
+            }
+
+            if (overBudgetCats.length === 0) {
+                insightList.innerHTML = `
+                    <div class="empty-state">You're doing great! No categories are over budget.</div>
+                `;
+            } else {
+                insightList.innerHTML = overBudgetCats.map(item => `
+                    <div class="activity-item">
+                        <div class="activity-item-info">
+                            <div class="activity-item-name">Over Budget: ${item.cat}</div>
+                            <div class="activity-item-date">Try to reduce spending in this category</div>
+                        </div>
+                        <div class="activity-item-amount negative">-${Components.formatCurrency(item.over)}</div>
+                    </div>
+                `).join('') + `
+                    <p style="font-size: 0.875rem; color: hsl(var(--muted-foreground)); margin-top: 12px;">
+                        You have exceeded your budget in ${overBudgetCats.length} categories. Focus on these areas next month to save more.
+                    </p>
+                `;
+            }
+        }
     }
 };
+
+// Export to global scope
+window.App = App;
+window.Components = Components;
+window.Storage = Storage;
+window.Charts = Charts;
 
 document.addEventListener('DOMContentLoaded', () => App.init());

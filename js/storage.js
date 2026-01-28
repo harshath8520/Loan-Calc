@@ -5,7 +5,9 @@ const Storage = {
         loans: [],
         payments: [],
         income: [],
-        expenses: []
+        expenses: [],
+        budgets: {},
+        categories: []
     },
 
     // Initialize listeners
@@ -39,6 +41,19 @@ const Storage = {
                 console.error(`Firebase Error in ${colName}:`, error);
                 Components.showToast(`Error connecting to ${colName}`, 'error', 'Database Error');
             });
+        });
+
+        // Listen for budgets and categories settings
+        db.collection('settings').doc('finances').onSnapshot(doc => {
+            if (doc.exists) {
+                const settings = doc.data();
+                this.data.budgets = settings.budgets || {};
+                this.data.categories = settings.categories || [];
+            } else {
+                this.data.budgets = {};
+                this.data.categories = [];
+            }
+            if (onUpdateCallback) onUpdateCallback();
         });
     },
 
@@ -179,12 +194,42 @@ const Storage = {
         await db.collection('expenses').doc(id).delete();
     },
 
+    // Budgets
+    getBudgets() {
+        return this.data.budgets;
+    },
+
+    async saveBudgets(budgets) {
+        await db.collection('settings').doc('finances').set({
+            budgets: budgets,
+            categories: this.data.categories
+        }, { merge: true });
+    },
+
+    // Categories persistence
+    async saveCategories(categories) {
+        await db.collection('settings').doc('finances').set({
+            categories: categories,
+            budgets: this.data.budgets
+        }, { merge: true });
+    },
+
     // Helpers
     getCategories() {
-        const categories = new Set();
+        const categories = new Set(this.data.categories);
+        // Fallback to existing data categories
         this.data.loans.forEach(loan => {
             if (loan.category) categories.add(loan.category);
         });
+        this.data.expenses.forEach(exp => {
+            if (exp.category) categories.add(exp.category);
+        });
+
+        // Ensure standard defaults are always there if nothing else
+        if (categories.size === 0) {
+            ['Food', 'Transportation', 'Shopping', 'Entertainment', 'Utilities', 'Health', 'Other'].forEach(c => categories.add(c));
+        }
+
         return Array.from(categories);
     },
 
@@ -213,5 +258,6 @@ const Storage = {
             await batch.commit();
             console.log(`Cleared collection: ${colName}`);
         }
+        await db.collection('settings').doc('finances').delete();
     }
 };

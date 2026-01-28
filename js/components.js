@@ -81,7 +81,7 @@ const Components = {
                     </div>
                     <div class="item-detail">
                         <span class="item-detail-label">Monthly Payment</span>
-                        <span class="item-detail-value">${this.formatCurrency(item.monthlyPayment)}</span>
+                        <span class="item-detail-value">${this.formatCurrency(item.monthlyPayment)} (Day ${item.monthlyPaymentDay || '-'})</span>
                     </div>
                 </div>
                 ${tags.length > 0 ? `

@@ -102,11 +102,19 @@
                     <div class="activity-list" id="monthlyPaymentsList">
                         <div class="empty-state">No active items found</div>
                     </div>
+                    <div class="item-footer" style="padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; font-weight: 600;">
+                        <span>Pending Total:</span>
+                        <span id="upcomingPaymentsTotal" style="color: #ff4444;">₹0</span>
+                    </div>
                 </div>
                 <div class="activity-card" style="grid-column: span 1;">
                     <h3>Paid This Month (Sent to Lenders)</h3>
                     <div class="activity-list" id="paidPaymentsList">
                         <div class="empty-state">No payments sent yet</div>
+                    </div>
+                    <div class="item-footer" style="padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; font-weight: 600;">
+                        <span>Paid Total:</span>
+                        <span id="paidPaymentsTotal" style="color: #44ff44;">₹0</span>
                     </div>
                 </div>
             </div>

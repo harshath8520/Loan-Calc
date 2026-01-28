@@ -214,6 +214,16 @@ const App = {
 
             const paidLoansThisMonth = activeLoans.filter(l => paidLoanIds.has(l.id));
 
+            // Calculate Totals
+            const upcomingTotal = upcomingLoans.reduce((sum, l) => sum + parseFloat(l.monthlyPayment || 0), 0);
+            const paidTotal = thisMonthPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+
+            // Update Totals in Card Bottoms
+            const upcomingTotalEl = document.getElementById('upcomingPaymentsTotal');
+            const paidTotalEl = document.getElementById('paidPaymentsTotal');
+            if (upcomingTotalEl) upcomingTotalEl.textContent = Components.formatCurrency(upcomingTotal);
+            if (paidTotalEl) paidTotalEl.textContent = Components.formatCurrency(paidTotal);
+
             if (upcomingLoans.length === 0) {
                 monthlyPaymentsList.innerHTML = '<div class="empty-state">No upcoming payments this month</div>';
             } else {

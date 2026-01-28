@@ -7,6 +7,13 @@ const App = {
         // Setup static event listeners immediately
         this.setupEventListeners();
 
+        // Initialize dashboard filters
+        const now = new Date();
+        const currentMonth = now.toISOString().substring(0, 7);
+        if (document.getElementById('dashViewMonth')) {
+            document.getElementById('dashViewMonth').value = currentMonth;
+        }
+
         // Show loading state
         Components.showToast('Connecting to Cloud Database...', 'info', 'Loading');
 
@@ -15,6 +22,20 @@ const App = {
             this.updateAllCategorySelects();
             this.refreshAllUI();
         });
+    },
+
+    resetDashboardFilters() {
+        const now = new Date();
+        const currentMonth = now.toISOString().substring(0, 7);
+        const monthInput = document.getElementById('dashViewMonth');
+        const startInput = document.getElementById('dashStartDate');
+        const endInput = document.getElementById('dashEndDate');
+
+        if (monthInput) monthInput.value = currentMonth;
+        if (startInput) startInput.value = '';
+        if (endInput) endInput.value = '';
+
+        this.updateDashboard();
     },
 
     // Central function to update all UI components when data changes
@@ -26,6 +47,30 @@ const App = {
         this.updateAnalytics();
         this.updateAdvisor();
         Charts.updateAll();
+    },
+
+    getDashboardDateRange() {
+        const dashMonth = document.getElementById('dashViewMonth')?.value;
+        const dashStart = document.getElementById('dashStartDate')?.value;
+        const dashEnd = document.getElementById('dashEndDate')?.value;
+
+        let startDate, endDate;
+
+        if (dashStart && dashEnd) {
+            startDate = new Date(dashStart);
+            startDate.setHours(0, 0, 0, 0);
+            endDate = new Date(dashEnd);
+            endDate.setHours(23, 59, 59, 999);
+        } else if (dashMonth) {
+            const [year, month] = dashMonth.split('-').map(Number);
+            startDate = new Date(year, month - 1, 1);
+            endDate = new Date(year, month, 0, 23, 59, 59, 999);
+        } else {
+            const now = new Date();
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        }
+        return { startDate, endDate };
     },
 
     // Setup all event listeners
@@ -153,31 +198,26 @@ const App = {
         const income = Storage.getIncome();
         const expenses = Storage.getExpenses();
 
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
+        const { startDate, endDate } = this.getDashboardDateRange();
 
-        // Calculate Monthly Totals
-        const monthlyIncomeTotal = income
-            .filter(i => {
-                const d = new Date(i.date);
-                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-            })
-            .reduce((sum, i) => sum + parseFloat(i.amount), 0);
+        // Calculate Totals within Range
+        const filteredIncome = income.filter(i => {
+            const d = new Date(i.date);
+            return d >= startDate && d <= endDate;
+        });
+        const monthlyIncomeTotal = filteredIncome.reduce((sum, i) => sum + parseFloat(i.amount), 0);
 
-        const monthlyExpenseTotal = expenses
-            .filter(e => {
-                const d = new Date(e.date);
-                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-            })
-            .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        const filteredExpenses = expenses.filter(e => {
+            const d = new Date(e.date);
+            return d >= startDate && d <= endDate;
+        });
+        const monthlyExpenseTotal = filteredExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
 
-        const monthlyDebtPayments = payments
-            .filter(p => {
-                const d = new Date(p.date);
-                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-            })
-            .reduce((sum, p) => sum + parseFloat(p.amount), 0);
+        const filteredPayments = payments.filter(p => {
+            const d = new Date(p.date);
+            return d >= startDate && d <= endDate;
+        });
+        const monthlyDebtPayments = filteredPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
         const totalDebt = loans.reduce((sum, l) => sum + parseFloat(l.balance), 0);
         const netBalance = monthlyIncomeTotal - (monthlyExpenseTotal + monthlyDebtPayments);
@@ -198,18 +238,18 @@ const App = {
         const paidPaymentsList = document.getElementById('paidPaymentsList');
 
         if (monthlyPaymentsList) {
-            const activeLoans = loans.filter(l => l.balance > 0);
+            const activeLoans = loans.filter(l => l.balance > 0 || payments.some(p => p.itemId === l.id && new Date(p.date) >= startDate && new Date(p.date) <= endDate));
 
-            // Get payments for this month
+            // Get payments for this period
             const thisMonthPayments = payments.filter(p => {
                 const d = new Date(p.date);
-                return d.getMonth() === currentMonth && d.getFullYear() === currentYear && p.itemType === 'loan';
+                return d >= startDate && d <= endDate && p.itemType === 'loan';
             });
 
-            // Map which loans are already paid this month
+            // Map which loans are already paid in this range
             const paidLoanIds = new Set(thisMonthPayments.map(p => p.itemId));
 
-            const upcomingLoans = activeLoans.filter(l => !paidLoanIds.has(l.id))
+            const upcomingLoans = activeLoans.filter(l => l.balance > 0 && !paidLoanIds.has(l.id))
                 .sort((a, b) => (parseInt(a.monthlyPaymentDay) || 0) - (parseInt(b.monthlyPaymentDay) || 0));
 
             const paidLoansThisMonth = activeLoans.filter(l => paidLoanIds.has(l.id));
@@ -225,16 +265,16 @@ const App = {
             if (paidTotalEl) paidTotalEl.textContent = Components.formatCurrency(paidTotal);
 
             if (upcomingLoans.length === 0) {
-                monthlyPaymentsList.innerHTML = '<div class="empty-state">No upcoming payments this month</div>';
+                monthlyPaymentsList.innerHTML = '<div class="empty-state">No upcoming payments in this period</div>';
             } else {
                 monthlyPaymentsList.innerHTML = upcomingLoans.map(loan => {
                     const day = loan.monthlyPaymentDay || '??';
-                    const dueDate = new Date(currentYear, currentMonth, parseInt(day));
+                    const dueDate = new Date(startDate.getFullYear(), startDate.getMonth(), parseInt(day));
                     return `
                         <div class="activity-item">
                             <div class="activity-item-info">
                                 <div class="activity-item-name">${loan.name} (Day ${day})</div>
-                                <div class="activity-item-date">Due: ${Components.formatDate(dueDate.toISOString())}</div>
+                                <div class="activity-item-date">Period Due Date: ${Components.formatDate(dueDate.toISOString())}</div>
                             </div>
                             <div class="activity-item-amount negative">-${Components.formatCurrency(loan.monthlyPayment)}</div>
                         </div>
@@ -262,11 +302,20 @@ const App = {
             }
         }
 
-        // Update Recent Activity
+        // Update Recent Activity (Filtered by date range)
         const recentActivity = [
-            ...income.map(i => ({ ...i, type: 'income', label: i.source })),
-            ...expenses.map(e => ({ ...e, type: 'expense', label: e.name })),
-            ...payments.map(p => {
+            ...income.filter(i => {
+                const d = new Date(i.date);
+                return d >= startDate && d <= endDate;
+            }).map(i => ({ ...i, type: 'income', label: i.source })),
+            ...expenses.filter(e => {
+                const d = new Date(e.date);
+                return d >= startDate && d <= endDate;
+            }).map(e => ({ ...e, type: 'expense', label: e.name })),
+            ...payments.filter(p => {
+                const d = new Date(p.date);
+                return d >= startDate && d <= endDate;
+            }).map(p => {
                 const item = this.getItemById(p.itemId, p.itemType);
                 return { ...p, type: 'payment', label: item ? item.name : 'Unknown' };
             })
@@ -338,6 +387,7 @@ const App = {
     openIncomeModal() {
         Components.clearForm('formIncome');
         document.getElementById('modalIncomeTitle').textContent = 'Add Income';
+        document.getElementById('incomeDate').value = new Date().toISOString().split('T')[0];
         Components.showModal('modalIncome');
     },
 
@@ -357,6 +407,7 @@ const App = {
     openExpenseModal() {
         Components.clearForm('formExpense');
         document.getElementById('modalExpenseTitle').textContent = 'Add Expense';
+        document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
         Components.showModal('modalExpense');
     },
 
@@ -558,13 +609,11 @@ const App = {
         const budgets = Storage.getBudgets();
         const categories = Storage.getCategories();
 
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
+        const { startDate, endDate } = this.getDashboardDateRange();
 
         const monthlyExpenses = expenses.filter(e => {
             const d = new Date(e.date);
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            return d >= startDate && d <= endDate;
         });
 
         const analysisList = document.getElementById('budgetAnalysisList');
@@ -751,13 +800,11 @@ const App = {
         const budgets = Storage.getBudgets();
         const expenses = Storage.getExpenses();
 
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
+        const { startDate, endDate } = this.getDashboardDateRange();
 
         const monthlyExpenses = expenses.filter(e => {
             const d = new Date(e.date);
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            return d >= startDate && d <= endDate;
         });
 
         // 1. Loan Closure Strategy (Snowball - lowest balance first as requested)
@@ -817,7 +864,7 @@ const App = {
                     </div>
                 `).join('') + `
                     <p style="font-size: 0.875rem; color: hsl(var(--muted-foreground)); margin-top: 12px;">
-                        You have exceeded your budget in ${overBudgetCats.length} categories. Focus on these areas next month to save more.
+                        You have exceeded your budget in ${overBudgetCats.length} categories. Focus on these areas in the future to save more.
                     </p>
                 `;
             }

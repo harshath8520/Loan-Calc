@@ -65,8 +65,24 @@
                     <button class="btn btn-primary" id="btnAddLoan">Add Loan</button>
                 </div>
             </div>
-
-            <!-- Money Magnet Summary -->
+            <div class="filters-bar" style="margin-bottom: 2rem; display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-end; background: rgba(255, 255, 255, 0.03); padding: 1.25rem; border-radius: var(--radius); border: 1px solid rgba(255,255,255,0.05);">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="label" style="font-size: 0.75rem; color: var(--muted-foreground);">Select Month</label>
+                    <input type="month" class="input" id="dashViewMonth" style="width: 180px;" onchange="App.updateDashboard()">
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="label" style="font-size: 0.75rem; color: var(--muted-foreground);">Custom Range Start</label>
+                        <input type="date" class="input" id="dashStartDate" style="width: 160px;" onchange="App.updateDashboard()">
+                    </div>
+                    <span style="padding-top: 1.5rem; opacity: 0.5;">to</span>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="label" style="font-size: 0.75rem; color: var(--muted-foreground);">Custom Range End</label>
+                        <input type="date" class="input" id="dashEndDate" style="width: 160px;" onchange="App.updateDashboard()">
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="App.resetDashboardFilters()" style="margin-top: auto;">Current Month</button>
+            </div>
             <div class="summary-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
                 <div class="summary-card income">
                     <div class="summary-label">Monthly Income</div>
